@@ -21,16 +21,11 @@ public class Main25 {
 		
 		public int height() {
 			Node root = this;
-			// don't count the root
-			if (root.getLeftChild() == null && root.getRightChild() == null) return 0;
-			return Math.max(height(root.getLeftChild()), height(root.getRightChild()));
-			
-			// count the root
-			// return height(root);
+			return height(root);
 		}
 		
 		private int height(Node node) {
-			if (node == null) return 0;
+			if (node == null) return -1;
 			
 			return 1 + Math.max(height(node.getLeftChild()), height(node.getRightChild()));
 		}
