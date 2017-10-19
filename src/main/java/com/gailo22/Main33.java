@@ -16,13 +16,18 @@ public class Main33 {
 	static class Graph<E> {
 		Map<E, Node<E>> nodes = new HashMap<>();
 		
+		public boolean addNode(E e) {
+			if (nodes.containsKey(e)) return false;
+			
+			nodes.put(e, new Node<>(e));
+			return true;
+		}
+		
 		public Node<E> getNode(E e) {
-			Node<E> node = nodes.get(e);
-			if (node == null) {
-				node = new Node<>(e);
-				nodes.put(e, node);
-			}
-			return node;
+			if (!nodes.containsKey(e)) 
+				throw new RuntimeException(String.format("Node [%s] does not exists", e));
+			
+			return nodes.get(e);
 		}
 		
 		public void addEdge(E source, E destination) {
@@ -54,13 +59,19 @@ public class Main33 {
 		//       / \
 		//      B   C -- D
 		//      | /
-		//      F
+		//      E
 		Graph<String> g = new Graph<>();
+		g.addNode("A");
+		g.addNode("B");
+		g.addNode("C");
+		g.addNode("D");
+		g.addNode("E");
+		
 		g.addEdge("A", "B");
 		g.addEdge("A", "C");
 		g.addEdge("C", "D");
-		g.addEdge("B", "F");
-		g.addEdge("C", "F");
+		g.addEdge("B", "E");
+		g.addEdge("C", "E");
 		
 		dfs(g, "A");
 		System.out.println();
