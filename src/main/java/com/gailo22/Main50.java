@@ -25,25 +25,10 @@ public class Main50 {
 		}
 	}
 	
-	static class StringShow implements Show<String> {
-		@Override
-		public String show(String t) {
-			return t;
-		}
-	}
-	
-	static class IntShow implements Show<Integer> {
-		@Override
-		public String show(Integer t) {
-			return String.valueOf(t);
-		}
-	}
-	
-	static class PersonShow implements Show<Person> {
-		@Override
-		public String show(Person t) {
-			return String.format("name: %s", t.getName());
-		}
+	static class ShowInstances {
+		static Show<String> stringShow = t -> t;
+		static Show<Integer> intShow = t -> String.valueOf(t);
+		static Show<Person> personShow = t -> String.format("name: %s", t.getName());
 	}
 	
 	static class Shows {
@@ -53,9 +38,9 @@ public class Main50 {
 	}
 	
 	public static void main(String[] args) {
-		System.out.println(Shows.show(new StringShow()).apply("hello"));
-		System.out.println(Shows.show(new IntShow()).apply(123));
-		System.out.println(Shows.show(new PersonShow()).apply(new Person("Jones")));
+		System.out.println(Shows.show(ShowInstances.stringShow).apply("hello"));
+		System.out.println(Shows.show(ShowInstances.intShow).apply(123));
+		System.out.println(Shows.show(ShowInstances.personShow).apply(new Person("Jones")));
 	}
 
 }
