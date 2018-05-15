@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-import static com.gailo22.Main.Memoizer.memoize;
+import static com.gailo22.Main59.Memoizer.memoize;
 import static java.util.stream.IntStream.range;
 
 public class Main59 {
