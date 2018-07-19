@@ -6,6 +6,7 @@ import lombok.Data;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 public class Main71 {
 
@@ -55,8 +56,21 @@ public class Main71 {
             .flatMap(it -> it.stream().findFirst())
             .orElse(null);
 
-        System.out.println(creditCard3);
+        CreditCard creditCard4 = resolve(() -> caseInfo2.getProductInfo().get(0)
+            .getCreditCards().get(0))
+            .orElse(null);
 
+        System.out.println(creditCard4);
+
+    }
+
+    public static <T> Optional<T> resolve(Supplier<T> resolver) {
+        try {
+            T result = resolver.get();
+            return Optional.ofNullable(result);
+        } catch (NullPointerException e) {
+            return Optional.empty();
+        }
     }
 
 }
