@@ -8,6 +8,7 @@ import org.jooq.lambda.tuple.Tuple2;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -21,11 +22,17 @@ public class Main65 {
         F apply(E e) throws Throwable;
     }
 
+    @FunctionalInterface
+    interface ExceptionFunction2<E, F, G> {
+        G apply(E e, F f) throws Throwable;
+    }
+
     static class Either<E> {
         private E value;
         private Throwable problem;
 
-        private Either() {}
+        private Either() {
+        }
 
         public static <E> Either<E> success(E v) {
             Either<E> self = new Either<>();
@@ -67,10 +74,20 @@ public class Main65 {
             }
         }
 
-        public static <E,F> Function<E, Either<F>> wrap(ExceptionFunction<E,F> op) {
+        public static <E, F> Function<E, Either<F>> wrap(ExceptionFunction<E, F> op) {
             return e -> {
                 try {
                     return Either.success(op.apply(e));
+                } catch (Throwable th) {
+                    return Either.failure(th);
+                }
+            };
+        }
+
+        public static <E, F, G> BiFunction<E, F, Either<G>> wrap2(ExceptionFunction2<E, F, G> op) {
+            return (e, f) -> {
+                try {
+                    return Either.success(op.apply(e, f));
                 } catch (Throwable th) {
                     return Either.failure(th);
                 }
@@ -81,68 +98,70 @@ public class Main65 {
 
     static final class Nothing {
         public static final Nothing instance = new Nothing();
-        private Nothing() {}
+
+        private Nothing() {
+        }
     }
 
-	static class State<S, A> {
+    static class State<S, A> {
 
-		public final Function<S, Tuple2<A, S>> run;
+        public final Function<S, Tuple2<A, S>> run;
 
-		public State(Function<S, Tuple2<A, S>> run) {
-			super();
-			this.run = run;
-		}
+        public State(Function<S, Tuple2<A, S>> run) {
+            super();
+            this.run = run;
+        }
 
-		public static <S, A> State<S, A> unit(A a) {
-			return new State<>(s -> new Tuple2<>(a, s));
-		}
+        public static <S, A> State<S, A> unit(A a) {
+            return new State<>(s -> new Tuple2<>(a, s));
+        }
 
-		public <B> State<S, B> map(Function<A, B> f) {
-			return flatMap(a -> State.unit(f.apply(a)));
-		}
+        public <B> State<S, B> map(Function<A, B> f) {
+            return flatMap(a -> State.unit(f.apply(a)));
+        }
 
-		public <B, C> State<S, C> map2(State<S, B> sb, Function<A, Function<B, C>> f) {
-			return flatMap(a -> sb.map(b -> f.apply(a).apply(b)));
-		}
+        public <B, C> State<S, C> map2(State<S, B> sb, Function<A, Function<B, C>> f) {
+            return flatMap(a -> sb.map(b -> f.apply(a).apply(b)));
+        }
 
-		public <B> State<S, B> flatMap(Function<A, State<S, B>> f) {
-			return new State<>(s -> {
+        public <B> State<S, B> flatMap(Function<A, State<S, B>> f) {
+            return new State<>(s -> {
                 Tuple2<A, S> temp = run.apply(s);
-				return f.apply(temp.v1).run.apply(temp.v2);
-			});
-		}
+                return f.apply(temp.v1).run.apply(temp.v2);
+            });
+        }
 
 //		public static <S, A> State<S, List<A>> sequence(List<State<S, A>> fs) {
 //			return fs.foldRight(State.unit(List.<A>list()), f -> acc -> f.map2(acc, a -> b -> b.cons(a)));
 //		}
 
-		public static <S> State<S, S> get() {
-			return new State<>(s -> new Tuple2<>(s, s));
-		}
+        public static <S> State<S, S> get() {
+            return new State<>(s -> new Tuple2<>(s, s));
+        }
 
-		public static <S, A> State<S, A> getState(Function<S, A> f) {
-			return new State<>(s -> new Tuple2<>(f.apply(s), s));
-		}
+        public static <S, A> State<S, A> getState(Function<S, A> f) {
+            return new State<>(s -> new Tuple2<>(f.apply(s), s));
+        }
 
-		public static <S> State<S, Nothing> set(S s) {
-			return new State<>(x -> new Tuple2<>(Nothing.instance, s));
-		}
+        public static <S> State<S, Nothing> set(S s) {
+            return new State<>(x -> new Tuple2<>(Nothing.instance, s));
+        }
 
-		public static <S> State<S, Nothing> modify_(Function<S, S> f) {
-			return new State<>(s -> new Tuple2<>(Nothing.instance, f.apply(s)));
-		}
+        public static <S> State<S, Nothing> modify_(Function<S, S> f) {
+            return new State<>(s -> new Tuple2<>(Nothing.instance, f.apply(s)));
+        }
 
-		public static <S> State<S, Nothing> modify(Function<S, S> f) {
-			return State.<S>get().flatMap(s -> set(f.apply(s)));
-		}
+        public static <S> State<S, Nothing> modify(Function<S, S> f) {
+            return State.<S>get().flatMap(s -> set(f.apply(s)));
+        }
 
-		public A eval(S s) {
-			return run.apply(s).v1;
-		}
+        public A eval(S s) {
+            return run.apply(s).v1;
+        }
 
-	}
+    }
 
-	public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws InterruptedException {
 
         BasePlugin<?> rootPlugin = new RootPlugin();
         BasePlugin<?> plugin1 = new Plugin1();
@@ -161,11 +180,11 @@ public class Main65 {
 
             Set<BasePlugin<?>> children = graph.successors(task);
             children.stream().parallel()
-                    .forEach(x -> {
-                        task.submit(null, null).thenAccept(y -> {
-                            queue.add(x);
-                        });
+                .forEach(x -> {
+                    task.submit(null, null).thenAccept(y -> {
+                        queue.add(x);
                     });
+                });
         }
 
 //        CaseInfo caseInfo = new CaseInfo();
@@ -174,35 +193,38 @@ public class Main65 {
 
         TimeUnit.SECONDS.sleep(3);
 
-	}
+    }
 
-	static class SubmissionService {
+    static class SubmissionService {
 
         //@Autowired
         static List<BasePlugin<CaseInfo>> plugins = new ArrayList<>();
+
         static {
             plugins.add(new Plugin1());
             plugins.add(new Plugin2());
             plugins.add(new Plugin3());
-        };
+        }
+
+        ;
 
         static void start(CaseInfo cse, SubmissionState state) {
             plugins.stream()//.parallel()
-                    .filter(it -> it.isApply(cse))
-                    .map(it -> (Supplier<CompletableFuture<?>>) () -> it.submit(cse, state))
-                    .forEach(it -> {
-                        System.out.println(it.get().join());
-                    });
+                .filter(it -> it.isApply(cse))
+                .map(it -> (Supplier<CompletableFuture<?>>) () -> it.submit(cse, state))
+                .forEach(it -> {
+                    System.out.println(it.get().join());
+                });
         }
     }
 
-	@Data
+    @Data
     static class CaseInfo {
         private String caseId;
     }
 
     @Data
-    static class SubmissionState extends State<CompletableFuture<?>, Runnable>{
+    static class SubmissionState extends State<CompletableFuture<?>, Runnable> {
         private String tjlog;
         private String others;
 
@@ -216,21 +238,23 @@ public class Main65 {
                                            Consumer<CaseInfo> rollback) {
             CompletableFuture<List<?>> sequence = sequence(futures);
             sequence.handle((ok, ko) -> {
-                    if (ko == null) {
-                        thenAction.accept(caseInfo);
-                    } else {
-                        rollback.accept(caseInfo);
-                    }
-                    return null;
-                }).join();
+                if (ko == null) {
+                    thenAction.accept(caseInfo);
+                } else {
+                    rollback.accept(caseInfo);
+                }
+                return null;
+            }).join();
 
             return CompletableFuture.completedFuture("done!!!");
         }
     }
 
-	interface BasePlugin<T> {
+    interface BasePlugin<T> {
         boolean isApply(T t);
+
         String getName();
+
         default CompletableFuture<?> submit(T t, SubmissionState state) {
             if (!isApply(t)) {
                 return CompletableFuture.completedFuture(null);
@@ -259,7 +283,7 @@ public class Main65 {
         }
     }
 
-	static class Plugin1 implements BasePlugin<CaseInfo> {
+    static class Plugin1 implements BasePlugin<CaseInfo> {
 
         @Override
         public String getName() {
@@ -288,20 +312,20 @@ public class Main65 {
             future3.completeExceptionally(new RuntimeException("eerrror"));
 
             return state.submit(
-                    caseInfo,
-                    Arrays.asList(future1, future3, future2),
-                    (caseInfo1) -> {
-                        caseInfo1.setCaseId("case-123");
-                        System.out.println("update: " + caseInfo1);
-                    },
-                    (caseInfo2) -> {
-                        System.out.println("rollback: " + caseInfo2);
-                    });
+                caseInfo,
+                Arrays.asList(future1, future3, future2),
+                (caseInfo1) -> {
+                    caseInfo1.setCaseId("case-123");
+                    System.out.println("update: " + caseInfo1);
+                },
+                (caseInfo2) -> {
+                    System.out.println("rollback: " + caseInfo2);
+                });
         }
 
     }
 
-	static class Plugin2 implements BasePlugin<CaseInfo> {
+    static class Plugin2 implements BasePlugin<CaseInfo> {
 
         @Override
         public String getName() {
@@ -324,7 +348,7 @@ public class Main65 {
 
     }
 
-	static class Plugin3 implements BasePlugin<CaseInfo> {
+    static class Plugin3 implements BasePlugin<CaseInfo> {
 
         @Override
         public String getName() {
@@ -350,15 +374,15 @@ public class Main65 {
             });
 
             return state.submit(
-                    caseInfo,
-                    Arrays.asList(future1, future2),
-                    (caseInfo1) -> {
-                        caseInfo1.setCaseId("case-456");
-                        System.out.println("update: " + caseInfo1);
-                    },
-                    (caseInfo2) -> {
-                        System.out.println("rollback: " + caseInfo2);
-                    });
+                caseInfo,
+                Arrays.asList(future1, future2),
+                (caseInfo1) -> {
+                    caseInfo1.setCaseId("case-456");
+                    System.out.println("update: " + caseInfo1);
+                },
+                (caseInfo2) -> {
+                    System.out.println("rollback: " + caseInfo2);
+                });
         }
 
     }
@@ -366,15 +390,16 @@ public class Main65 {
     static void sleep(int sec) {
         try {
             TimeUnit.SECONDS.sleep(sec);
-        } catch (InterruptedException e) {}
+        } catch (InterruptedException e) {
+        }
     }
 
     static CompletableFuture<List<?>> sequence(List<CompletableFuture<?>> com) {
         return CompletableFuture.allOf(com.toArray(new CompletableFuture[0]))
-                .thenApply(v -> com.stream()
-                        .map(CompletableFuture::join)
-                        .collect(toList())
-                );
+            .thenApply(v -> com.stream()
+                .map(CompletableFuture::join)
+                .collect(toList())
+            );
     }
 
 
