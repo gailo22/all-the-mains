@@ -76,7 +76,7 @@ public class Main60 {
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
-                System.out.println("Plugin1 run.. " + Thread.currentThread().getName());
+                System.out.println("CreateUpdateCustomer run.. " + Thread.currentThread().getName());
             });
         }
     }
@@ -95,7 +95,7 @@ public class Main60 {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            System.out.println("Plugin2 run.. " + Thread.currentThread().getName());
+            System.out.println("OpenAccount run.. " + Thread.currentThread().getName());
             return CompletableFuture.completedFuture(null);
         }
     }
