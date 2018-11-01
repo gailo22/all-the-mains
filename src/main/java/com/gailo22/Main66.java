@@ -1,6 +1,7 @@
 package com.gailo22;
 
 import com.spotify.futures.CompletableFutures;
+import io.atlassian.fugue.Try;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -103,15 +104,28 @@ public class Main66 {
         static {
             plugins.add(new CreateUpdateCustomer());
             plugins.add(new PaymentOrders());
-            plugins.add(new OpenAccount());
+            plugins.add(new CustomerAddress());
+            plugins.add(new ContactChannel());
             plugins.add(new MarketingInfo());
-            plugins.add(new Remarks());
+            plugins.add(new GenerateDocForSecurities());
+            plugins.add(new OpenAccount());
+            plugins.add(new CustRelationship());
+            plugins.add(new CustomerRemark());
+            plugins.add(new JakJai());
+            plugins.add(new DebitCard());
             plugins.add(new AppForm());
-            plugins.add(new CustImages());
-            plugins.add(new CustImages2());
-            plugins.add(new MutualFund());
             plugins.add(new EZApp());
+            plugins.add(new NssEmail());
+            plugins.add(new NssSms());
+            plugins.add(new Fatca());
+            plugins.add(new CustImages());
+            plugins.add(new MutualFund());
+            plugins.add(new Consent());
+            plugins.add(new RiskAssessment());
+            plugins.add(new PromptPay());
+            plugins.add(new SubmitDocumentToNas());
             plugins.add(new NDID());
+            plugins.add(new SecuritiesAccount());
             plugins.add(new NotifyCustomer());
         };
 
@@ -128,6 +142,27 @@ public class Main66 {
             System.out.println("time init: " + (System.currentTimeMillis() - start) / 1_000);
 
             //hard stops
+            Try<String> tryHardStop = processHardStop(cse, tjlogList, steps, hardStops, doing, tasks, rollbackTasks);
+            if (tryHardStop.isFailure()) return;
+
+            // soft stops
+            List<CompletableFuture<WorkflowStep>> softStopTasks = new ArrayList<>();
+            List<BaseSubmissionPlugin> softStopsNoParent = softStops.stream().filter(it -> it.getParent() == null).collect(toList());
+            processSoftStop(cse, tjlogList, steps, softStopTasks, softStopsNoParent);
+
+            List<BaseSubmissionPlugin> softStopsWithParent = softStops.stream().filter(it -> it.getParent() != null).collect(toList());
+            processSoftStop(cse, tjlogList, steps, softStopTasks, softStopsWithParent);
+
+            List<WorkflowStep> sortedSteps = steps.stream()
+                    .sorted(Comparator.comparing(WorkflowStep::getCreatedDate))
+                    .collect(toList());
+
+            String stepsString = sortedSteps.toString().replaceAll("\\),", "\\),\n");
+            System.out.println(String.format("%s:%s", cse.getCaseId(), stepsString));
+
+        }
+
+        private Try<String> processHardStop(CaseInfo cse, List<String> tjlogList, Set<WorkflowStep> steps, List<BaseSubmissionPlugin> hardStops, List<BaseSubmissionPlugin> doing, List<CompletableFuture<WorkflowStep>> tasks, List<Function<Throwable, WorkflowStep>> rollbackTasks) {
             try {
                 while (doing.size() > 0 || tasks.size() > 0) {
                     doing = runHardStops(cse, tjlogList, steps, doing, tasks, rollbackTasks, hardStops);
@@ -143,7 +178,7 @@ public class Main66 {
                 //flush all running tasks
                 for (CompletableFuture<WorkflowStep> task: tasks) {
                     try {
-                        task.join();
+                        steps.add(task.join());
                     } catch (Exception ignored) { }
                 }
 
@@ -153,13 +188,15 @@ public class Main66 {
                     //steps.removeIf(it -> step.getName().equalsIgnoreCase(it.getName()));
                     steps.add(step);
                 }
-                System.out.println(steps.toString().replaceAll("\\),", "\\),\n"));
-                return;
+                String stepsString = steps.toString().replaceAll("\\),", "\\),\n");
+                System.out.println(String.format("%s:%s", cse.getCaseId(), stepsString));
+                return Try.failure(taskEx);
             }
+            return Try.successful("success");
+        }
 
-            // soft stops
-            List<CompletableFuture<WorkflowStep>> softStopTasks = new ArrayList<>();
-            for (BaseSubmissionPlugin plugin: softStops) {
+        private void processSoftStop(CaseInfo cse, List<String> tjlogList, Set<WorkflowStep> steps, List<CompletableFuture<WorkflowStep>> softStopTasks, List<BaseSubmissionPlugin> softStopsNoParent) {
+            for (BaseSubmissionPlugin plugin: softStopsNoParent) {
                 if (!plugin.isApply(cse)) {
                     continue;
                 }
@@ -184,9 +221,6 @@ public class Main66 {
                 WorkflowStep step = task.join();
                 steps.add(step);
             }
-
-            System.out.println(steps.toString().replaceAll("\\),", "\\),\n"));
-
         }
 
         private List<BaseSubmissionPlugin> runHardStops(CaseInfo cse,
@@ -366,6 +400,144 @@ public class Main66 {
         }
     }
 
+    static class CustomerAddress extends BaseSubmissionPlugin {
+
+        @Override
+        public String getName() {
+            return "customerAddress";
+        }
+
+        @Override
+        public boolean isHardStop() {
+            return true;
+        }
+
+        @Override
+        public boolean isApply(CaseInfo cse) {
+            return true;
+        }
+
+        @Override
+        public String getParent() {
+            return "createUpdateCustomer";
+        }
+
+        @Override
+        public void submit(CaseInfo cse, SubmissionState state) {
+            CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> {
+                sleep(3);
+                System.out.println("customerAddress-1 " + Thread.currentThread().getName());
+                return "customerAddress-1";
+            }, pool);
+
+            state.submit(future1, s -> {
+                System.out.println("customerAddress-thenApply2: " + s);
+                cse.setCaseId(s);
+            });
+            state.rollbackIfFailed(rollback -> {
+                System.out.println("customerAddress-rollback2");
+            });
+        }
+    }
+
+    static class ContactChannel extends BaseSubmissionPlugin {
+
+        @Override
+        public String getName() {
+            return "contactChannel";
+        }
+
+        @Override
+        public boolean isHardStop() {
+            return true;
+        }
+
+        @Override
+        public boolean isApply(CaseInfo cse) {
+            return true;
+        }
+
+        @Override
+        public String getParent() {
+            return "createUpdateCustomer";
+        }
+
+        @Override
+        public void submit(CaseInfo cse, SubmissionState state) {
+            CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> {
+                sleep(3);
+                System.out.println("contactChannel-1 " + Thread.currentThread().getName());
+                return "contactChannel-1";
+            }, pool);
+
+            state.submit(future1, s -> {
+                System.out.println("contactChannel-thenApply2: " + s);
+                cse.setCaseId(s);
+            });
+            state.rollbackIfFailed(rollback -> {
+                System.out.println("contactChannel-rollback2");
+            });
+        }
+    }
+
+    static class MarketingInfo extends BaseSubmissionPlugin {
+
+        @Override
+        public String getName() {
+            return "marketingInfo";
+        }
+
+        @Override
+        public boolean isHardStop() {
+            return true;
+        }
+
+        @Override
+        public boolean isApply(CaseInfo cse) {
+            return true;
+        }
+
+        @Override
+        public String getParent() {
+            return "createUpdateCustomer";
+        }
+
+        @Override
+        public void submit(CaseInfo cse, SubmissionState state) {
+            System.out.println("marketingInfo-plugin2");
+            state.submit(CompletableFuture.completedFuture(null));
+        }
+    }
+
+    static class GenerateDocForSecurities extends BaseSubmissionPlugin {
+
+        @Override
+        public String getName() {
+            return "generateDocForSecurities";
+        }
+
+        @Override
+        public boolean isHardStop() {
+            return true;
+        }
+
+        @Override
+        public boolean isApply(CaseInfo cse) {
+            return true;
+        }
+
+        @Override
+        public String getParent() {
+            return "createUpdateCustomer";
+        }
+
+        @Override
+        public void submit(CaseInfo cse, SubmissionState state) {
+            System.out.println("generateDocForSecurities-plugin2");
+            state.submit(CompletableFuture.completedFuture(null));
+        }
+    }
+
     static class OpenAccount extends BaseSubmissionPlugin {
 
         @Override
@@ -406,11 +578,11 @@ public class Main66 {
         }
     }
 
-    static class MarketingInfo extends BaseSubmissionPlugin {
+    static class CustRelationship extends BaseSubmissionPlugin {
 
         @Override
         public String getName() {
-            return "marketingInfo";
+            return "custRelationship";
         }
 
         @Override
@@ -425,21 +597,32 @@ public class Main66 {
 
         @Override
         public String getParent() {
-            return "createUpdateCustomer";
+            return "openAccount";
         }
 
         @Override
         public void submit(CaseInfo cse, SubmissionState state) {
-            System.out.println("marketingInfo-plugin2");
-            state.submit(CompletableFuture.completedFuture(null));
+            CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> {
+                sleep(1);
+                System.out.println("custRelationship-1 " + Thread.currentThread().getName());
+                return "custRelationship-1";
+            }, pool);
+
+            state.submit(future1, s -> {
+                System.out.println("custRelationship-thenApply1: " + s);
+                cse.setCaseId(s);
+            });
+            state.rollbackIfFailed(rollback -> {
+                System.out.println("custRelationship-rollback1");
+            });
         }
     }
 
-    static class Remarks extends BaseSubmissionPlugin {
+    static class CustomerRemark extends BaseSubmissionPlugin {
 
         @Override
         public String getName() {
-            return "remarks";
+            return "customerRemark";
         }
 
         @Override
@@ -475,6 +658,98 @@ public class Main66 {
         }
     }
 
+    static class JakJai extends BaseSubmissionPlugin {
+
+        @Override
+        public String getName() {
+            return "jakJai";
+        }
+
+        @Override
+        public boolean isHardStop() {
+            return true;
+        }
+
+        @Override
+        public boolean isApply(CaseInfo cse) {
+            return true;
+        }
+
+        @Override
+        public String getParent() {
+            return "customerRemark";
+        }
+
+        @Override
+        public void submit(CaseInfo cse, SubmissionState state) {
+
+            CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> {
+                sleep(1);
+                System.out.println("jakJai-1 " + Thread.currentThread().getName());
+                return "jakJai-1";
+            }, pool);
+
+            state.submit(future1, s -> {
+                System.out.println("jakJai-thenApply4: " + s);
+                cse.setCaseId(s);
+            });
+
+            state.rollbackIfFailed(rollback -> {
+                System.out.println("jakJai-rollback4");
+            });
+            System.out.println("jakJai-1");
+//            state.submit(CompletableFuture.completedFuture(null));
+
+        }
+    }
+
+    static class DebitCard extends BaseSubmissionPlugin {
+
+        @Override
+        public String getName() {
+            return "debitCard";
+        }
+
+        @Override
+        public boolean isHardStop() {
+            return true;
+        }
+
+        @Override
+        public boolean isApply(CaseInfo cse) {
+            return true;
+        }
+
+        @Override
+        public String getParent() {
+            return "customerRemark";
+        }
+
+        @Override
+        public void submit(CaseInfo cse, SubmissionState state) {
+
+            CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> {
+                sleep(1);
+                System.out.println("debitCard-1 " + Thread.currentThread().getName());
+                return "debitCard-1";
+            }, pool);
+
+            state.submit(future1, s -> {
+                System.out.println("debitCard-thenApply1: " + s);
+                cse.setCaseId(s);
+
+                //throw new RuntimeException("EEEEXXXception...");
+            });
+
+            state.rollbackIfFailed(rollback -> {
+                System.out.println("debitCard-rollback1");
+            });
+            System.out.println("debitCard-1");
+//            state.submit(CompletableFuture.completedFuture(null));
+
+        }
+    }
+
     static class AppForm extends BaseSubmissionPlugin {
 
         @Override
@@ -494,7 +769,7 @@ public class Main66 {
 
         @Override
         public String getParent() {
-            return "remarks";
+            return "customerRemark";
         }
 
         @Override
@@ -563,13 +838,13 @@ public class Main66 {
             state.rollbackIfFailed(rollback -> {
                 System.out.println("custImages-rollback4");
             });
-            state.submit(futureFailed, s -> {
-                System.out.println("custImages-thenApply3: " + s);
-                cse.setCaseId(s);
-            });
-            state.rollbackIfFailed(rollback -> {
-                System.out.println("custImages-rollback3");
-            });
+//            state.submit(futureFailed, s -> {
+//                System.out.println("custImages-thenApply3: " + s);
+//                cse.setCaseId(s);
+//            });
+//            state.rollbackIfFailed(rollback -> {
+//                System.out.println("custImages-rollback3");
+//            });
 
 //            CompletableFuture<Void> f1 = CompletableFuture.runAsync(() -> {
 //                if (true) throw new RuntimeException("eeeorrr");
@@ -579,36 +854,6 @@ public class Main66 {
 //            if (true) throw new RuntimeException("custImages-eeeorrr");
 //            state.submit(CompletableFuture.completedFuture(null));
 
-        }
-    }
-
-    static class CustImages2 extends BaseSubmissionPlugin {
-
-        @Override
-        public String getName() {
-            return "custImages2";
-        }
-
-        @Override
-        public boolean isHardStop() {
-            return true;
-        }
-
-        @Override
-        public boolean isApply(CaseInfo cse) {
-            return true;
-        }
-
-        @Override
-        public String getParent() {
-            return "appform";
-        }
-
-        @Override
-        public void submit(CaseInfo cse, SubmissionState state) {
-            if (true) throw new RuntimeException("custImages2-eeeorrr");
-//            System.out.println("custImages2");
-            state.submit(CompletableFuture.completedFuture(null));
         }
     }
 
@@ -698,6 +943,313 @@ public class Main66 {
         }
     }
 
+    static class NssEmail extends BaseSubmissionPlugin {
+
+        @Override
+        public String getName() {
+            return "nssEmail";
+        }
+
+        @Override
+        public boolean isHardStop() {
+            return false;
+        }
+
+        @Override
+        public boolean isApply(CaseInfo cse) {
+            return true;
+        }
+
+        @Override
+        public String getParent() {
+            return null;
+        }
+
+        @Override
+        public void submit(CaseInfo cse, SubmissionState state) {
+
+            CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> {
+                sleep(1);
+                System.out.println("nssEmail-1 " + Thread.currentThread().getName());
+                return "nssEmail-1";
+            }, pool);
+
+            state.submit(future1, s -> {
+                System.out.println("nssEmail-thenApply1: " + s);
+                cse.setCaseId(s);
+            });
+
+            state.rollbackIfFailed(rollback -> {
+                System.out.println("nssEmail-rollback1");
+            });
+
+        }
+    }
+
+    static class NssSms extends BaseSubmissionPlugin {
+
+        @Override
+        public String getName() {
+            return "nssSms";
+        }
+
+        @Override
+        public boolean isHardStop() {
+            return false;
+        }
+
+        @Override
+        public boolean isApply(CaseInfo cse) {
+            return true;
+        }
+
+        @Override
+        public String getParent() {
+            return null;
+        }
+
+        @Override
+        public void submit(CaseInfo cse, SubmissionState state) {
+
+            CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> {
+                sleep(1);
+                System.out.println("nssSms-1 " + Thread.currentThread().getName());
+                return "nssSms-1";
+            }, pool);
+
+            state.submit(future1, s -> {
+                System.out.println("nssSms-thenApply1: " + s);
+                cse.setCaseId(s);
+            });
+
+            state.rollbackIfFailed(rollback -> {
+                System.out.println("nssSms-rollback1");
+            });
+
+        }
+    }
+
+    static class Fatca extends BaseSubmissionPlugin {
+
+        @Override
+        public String getName() {
+            return "fatca";
+        }
+
+        @Override
+        public boolean isHardStop() {
+            return false;
+        }
+
+        @Override
+        public boolean isApply(CaseInfo cse) {
+            return true;
+        }
+
+        @Override
+        public String getParent() {
+            return null;
+        }
+
+        @Override
+        public void submit(CaseInfo cse, SubmissionState state) {
+
+            CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> {
+                sleep(1);
+                System.out.println("fatca-1 " + Thread.currentThread().getName());
+                return "fatca-1";
+            }, pool);
+
+            state.submit(future1, s -> {
+                System.out.println("fatca-thenApply1: " + s);
+                cse.setCaseId(s);
+            });
+
+            state.rollbackIfFailed(rollback -> {
+                System.out.println("fatca-rollback1");
+            });
+
+        }
+    }
+
+    static class Consent extends BaseSubmissionPlugin {
+
+        @Override
+        public String getName() {
+            return "consent";
+        }
+
+        @Override
+        public boolean isHardStop() {
+            return false;
+        }
+
+        @Override
+        public boolean isApply(CaseInfo cse) {
+            return true;
+        }
+
+        @Override
+        public String getParent() {
+            return null;
+        }
+
+        @Override
+        public void submit(CaseInfo cse, SubmissionState state) {
+
+            CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> {
+                sleep(1);
+                System.out.println("consent-1 " + Thread.currentThread().getName());
+                return "consent-1";
+            }, pool);
+
+            CompletableFuture<Object> future2 = future1.handle((ok, ko) -> {
+                throw new RuntimeException("eee rrror xxx 1");
+            });
+
+            state.submit(future1, s -> {
+                System.out.println("consent-thenApply1: " + s);
+                cse.setCaseId(s.toString());
+
+                //throw new RuntimeException("eee rrror xxx 2");
+            });
+
+            state.rollbackIfFailed(rollback -> {
+                System.out.println("consent-rollback1");
+            });
+
+        }
+    }
+
+    static class RiskAssessment extends BaseSubmissionPlugin {
+
+        @Override
+        public String getName() {
+            return "riskAssessment";
+        }
+
+        @Override
+        public boolean isHardStop() {
+            return false;
+        }
+
+        @Override
+        public boolean isApply(CaseInfo cse) {
+            return true;
+        }
+
+        @Override
+        public String getParent() {
+            return null;
+        }
+
+        @Override
+        public void submit(CaseInfo cse, SubmissionState state) {
+
+            CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> {
+                sleep(1);
+                System.out.println("riskAssessment-1 " + Thread.currentThread().getName());
+                return "riskAssessment-1";
+            }, pool);
+
+            state.submit(future1, s -> {
+                System.out.println("riskAssessment-thenApply1: " + s);
+                cse.setCaseId(s);
+            });
+
+            state.rollbackIfFailed(rollback -> {
+                System.out.println("riskAssessment-rollback1");
+            });
+
+        }
+    }
+
+    static class PromptPay extends BaseSubmissionPlugin {
+
+        @Override
+        public String getName() {
+            return "promptPay";
+        }
+
+        @Override
+        public boolean isHardStop() {
+            return false;
+        }
+
+        @Override
+        public boolean isApply(CaseInfo cse) {
+            return true;
+        }
+
+        @Override
+        public String getParent() {
+            return null;
+        }
+
+        @Override
+        public void submit(CaseInfo cse, SubmissionState state) {
+
+            CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> {
+                sleep(1);
+                System.out.println("promptPay-1 " + Thread.currentThread().getName());
+                return "promptPay-1";
+            }, pool);
+
+            state.submit(future1, s -> {
+                System.out.println("promptPay-thenApply1: " + s);
+                cse.setCaseId(s);
+            });
+
+            state.rollbackIfFailed(rollback -> {
+                System.out.println("promptPay-rollback1");
+            });
+
+        }
+    }
+
+    static class SubmitDocumentToNas extends BaseSubmissionPlugin {
+
+        @Override
+        public String getName() {
+            return "submitDocumentToNas";
+        }
+
+        @Override
+        public boolean isHardStop() {
+            return false;
+        }
+
+        @Override
+        public boolean isApply(CaseInfo cse) {
+            return true;
+        }
+
+        @Override
+        public String getParent() {
+            return null;
+        }
+
+        @Override
+        public void submit(CaseInfo cse, SubmissionState state) {
+
+            CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> {
+                sleep(1);
+                System.out.println("submitDocumentToNas-1 " + Thread.currentThread().getName());
+                return "submitDocumentToNas-1";
+            }, pool);
+
+            state.submit(future1, s -> {
+                System.out.println("submitDocumentToNas-thenApply1: " + s);
+                cse.setCaseId(s);
+            });
+
+            state.rollbackIfFailed(rollback -> {
+                System.out.println("submitDocumentToNas-rollback1");
+            });
+
+        }
+    }
+
     static class NDID extends BaseSubmissionPlugin {
 
         @Override
@@ -741,6 +1293,49 @@ public class Main66 {
         }
     }
 
+    static class SecuritiesAccount extends BaseSubmissionPlugin {
+
+        @Override
+        public String getName() {
+            return "securitiesAccount";
+        }
+
+        @Override
+        public boolean isHardStop() {
+            return false;
+        }
+
+        @Override
+        public boolean isApply(CaseInfo cse) {
+            return true;
+        }
+
+        @Override
+        public String getParent() {
+            return null;
+        }
+
+        @Override
+        public void submit(CaseInfo cse, SubmissionState state) {
+
+            CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> {
+                sleep(1);
+                System.out.println("securitiesAccount-1 " + Thread.currentThread().getName());
+                return "securitiesAccount-1";
+            }, pool);
+
+            state.submit(future1, s -> {
+                System.out.println("securitiesAccount-thenApply4: " + s);
+                cse.setCaseId(s);
+            });
+
+            state.rollbackIfFailed(rollback -> {
+                System.out.println("securitiesAccount-rollback4");
+            });
+
+        }
+    }
+
     static class NotifyCustomer extends BaseSubmissionPlugin {
 
         @Override
@@ -760,7 +1355,7 @@ public class Main66 {
 
         @Override
         public String getParent() {
-            return null;
+            return "pp";
         }
 
         @Override
