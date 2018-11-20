@@ -151,7 +151,7 @@ public class Main66 {
         static {
             plugins.add(new CreateUpdateCustomer());
 //            plugins.add(new PaymentOrders());
-//            plugins.add(new CustomerAddress());
+            plugins.add(new CustomerAddress());
 //            plugins.add(new ContactChannel());
 //            plugins.add(new MarketingInfo());
 //            plugins.add(new GenerateDocForSecurities());
@@ -160,7 +160,7 @@ public class Main66 {
 //            plugins.add(new CustomerRemark());
 //            plugins.add(new JakJai());
 //            plugins.add(new DebitCard());
-//            plugins.add(new AppForm());
+            plugins.add(new AppForm());
 //            plugins.add(new EZApp());
 //            plugins.add(new NssEmail());
 //            plugins.add(new NssSms());
@@ -173,10 +173,11 @@ public class Main66 {
 //            plugins.add(new SubmitDocumentToNas());
 //            plugins.add(new NDID());
 //            plugins.add(new SecuritiesAccount());
-//            plugins.add(new NotifyCustomer());
+            plugins.add(new NotifyCustomer());
             plugins.add(new ChangeAccountLongNamePlugin());
 
-            pluginList = Arrays.asList("").toArray(new String[0]);
+            pluginList = Arrays.asList("generateApplicationForm->changeAccountLongName",
+                    "generateApplicationForm->customerAddress").toArray(new String[0]);
             initPlugins();
         };
 
@@ -245,10 +246,11 @@ public class Main66 {
             List<BaseSubmissionPlugin> doing = hardStops.stream().filter(this::hasNoParent).collect(Collectors.toList());
             List<CompletableFuture<WorkflowStep>> tasks = new ArrayList<>();
             List<Function<Throwable, WorkflowStep>> rollbackTasks = new ArrayList<>();
+            Set<String> startedTasks = new HashSet<>();
 
             try {
                 while (!doing.isEmpty() || !tasks.isEmpty()) {
-                    doing = runHardStops(cse, tjlogList, steps, doing, tasks, rollbackTasks, finishedTasks);
+                    doing = runHardStops(cse, tjlogList, steps, doing, tasks, rollbackTasks, finishedTasks, startedTasks);
                 }
             } catch (Exception taskEx) {
                 log.info("Error ", taskEx);
@@ -275,22 +277,23 @@ public class Main66 {
 
             List<BaseSubmissionPlugin> doing = softStops.stream().filter(this::hasNoParent).collect(Collectors.toList());
             List<CompletableFuture<WorkflowStep>> tasks = new ArrayList<>();
-            Set<String> failedTasks = new HashSet<>();
+            Set<String> startedTasks = new HashSet<>();
 
             while (!doing.isEmpty() || !tasks.isEmpty()) {
-                doing = runSoftStops(cse, tjlogList, steps, doing, tasks, finishedTasks, failedTasks);
+                doing = runSoftStops(cse, tjlogList, steps, doing, tasks, finishedTasks, startedTasks);
             }
 
         }
 
         private void updateCase(CaseInfo cse, String appFormNo, CaseStatus status) {
-
+            log.info("update case status: {}", status);
         }
 
-        private List<BaseSubmissionPlugin> runHardStops(CaseInfo cse, List<String> tjlogList, Set<WorkflowStep> steps, List<BaseSubmissionPlugin> doing, List<CompletableFuture<WorkflowStep>> tasks, List<Function<Throwable, WorkflowStep>> rollbackTasks, Set<String> finishedTasks) {
+        private List<BaseSubmissionPlugin> runHardStops(CaseInfo cse, List<String> tjlogList, Set<WorkflowStep> steps, List<BaseSubmissionPlugin> doing, List<CompletableFuture<WorkflowStep>> tasks, List<Function<Throwable, WorkflowStep>> rollbackTasks, Set<String> finishedTasks, Set<String> startedTasks) {
             //run all ready plugins
             for (BaseSubmissionPlugin plugin : doing) {
                 String pluginName = plugin.getName();
+                startedTasks.add(pluginName);
                 if (!plugin.isApply(cse)) {
                     finishedTasks.add(pluginName);
                     continue;
@@ -329,15 +332,16 @@ public class Main66 {
 
             //get next ready plugins
             doing = hardStops.stream()
-                    .filter(it -> !finishedTasks.contains(it.getName()))
+                    .filter(it -> !startedTasks.contains(it.getName()))
                     .filter(it -> isReadyToContinue(finishedTasks, it)).collect(Collectors.toList());
             return doing;
         }
 
-        private List<BaseSubmissionPlugin> runSoftStops(CaseInfo cse, List<String> tjlogList, Set<WorkflowStep> steps, List<BaseSubmissionPlugin> doing, List<CompletableFuture<WorkflowStep>> tasks, Set<String> finishedTasks, Set<String> failedTasks) {
+        private List<BaseSubmissionPlugin> runSoftStops(CaseInfo cse, List<String> tjlogList, Set<WorkflowStep> steps, List<BaseSubmissionPlugin> doing, List<CompletableFuture<WorkflowStep>> tasks, Set<String> finishedTasks, Set<String> startedTasks) {
             //run all ready plugins
             for (BaseSubmissionPlugin plugin : doing) {
                 String pluginName = plugin.getName();
+                startedTasks.add(pluginName);
                 if (!plugin.isApply(cse)) {
                     finishedTasks.add(pluginName);
                     continue;
@@ -361,7 +365,6 @@ public class Main66 {
                 } catch (Exception ex) {
                     log.info("Error Rollback     ", ex);
                     steps.add(state.getRollbackTasks().apply(ex));
-                    failedTasks.add(pluginName);
                 }
             }
 
@@ -376,8 +379,6 @@ public class Main66 {
                     WorkflowStep step = task.join();
                     if ("SUCCESS".equals(step.getStatus())) {
                         finishedTasks.add(step.getName());
-                    } else {
-                        failedTasks.add(step.getName());
                     }
                     steps.add(step);
                     tasks.remove(task);
@@ -386,11 +387,10 @@ public class Main66 {
 
             //get next ready plugins
             doing = softStops.stream()
-                    .filter(it -> !finishedTasks.contains(it.getName()) && !failedTasks.contains(it.getName()))
+                    .filter(it -> !startedTasks.contains(it.getName()))
                     .filter(it -> isReadyToContinue(finishedTasks, it)).collect(Collectors.toList());
             return doing;
         }
-
         private static Set<String> parentSet(String s) {
             return PARENT_DELIM_REGEX.splitAsStream(s).collect(Collectors.toSet());
         }
@@ -542,7 +542,7 @@ public class Main66 {
         @Override
         public void submit(CaseInfo cse, SubmissionState state) {
             CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> {
-                sleep(3);
+                sleep(1);
                 System.out.println("customerAddress-1 " + Thread.currentThread().getName());
                 return "customerAddress-1";
             }, pool);
@@ -831,7 +831,7 @@ public class Main66 {
 
         @Override
         public String getName() {
-            return "appform";
+            return "generateApplicationForm";
         }
 
         @Override
@@ -849,19 +849,19 @@ public class Main66 {
 
             CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> {
                 sleep(1);
-                System.out.println("appform-1 " + Thread.currentThread().getName());
-                return "appform-1";
+                System.out.println("generateApplicationForm-1 " + Thread.currentThread().getName());
+                return "generateApplicationForm-1";
             }, pool);
 
             state.submit(future1, s -> {
-                System.out.println("appform-thenApply4: " + s);
+                System.out.println("generateApplicationForm-thenApply4: " + s);
                 cse.setCaseId(s);
             });
 
             state.rollbackIfFailed(rollback -> {
-                System.out.println("appform-rollback4");
+                System.out.println("generateApplicationForm-rollback4");
             });
-            System.out.println("appForm-1");
+            System.out.println("generateApplicationForm-1");
 //            state.submit(CompletableFuture.completedFuture(null));
 
         }
@@ -1395,7 +1395,7 @@ public class Main66 {
 
         @Override
         public boolean isHardStop() {
-            return false;
+            return true;
         }
 
         @Override
@@ -1407,7 +1407,7 @@ public class Main66 {
         public void submit(CaseInfo cse, SubmissionState state) {
 
             CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> {
-                sleep(1);
+                sleep(7);
                 System.out.println("changeAccountLongName-1 " + Thread.currentThread().getName());
                 return "changeAccountLongName-1";
             }, pool);
@@ -1492,9 +1492,9 @@ public class Main66 {
         CaseInfo cse = new CaseInfo();
         List<Account> accounts = new ArrayList<>();
         accounts.add(new Account("acc1"));
-        accounts.add(new Account("acc2"));
-        accounts.add(new Account("acc3"));
-        accounts.add(new Account("acc4"));
+//        accounts.add(new Account("acc2"));
+//        accounts.add(new Account("acc3"));
+//        accounts.add(new Account("acc4"));
 
         cse.setAccounts(accounts);
         time("startSubmission: ", () -> {
