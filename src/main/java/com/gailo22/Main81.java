@@ -1,5 +1,8 @@
 package com.gailo22;
 
+import io.atlassian.fugue.Either;
+import io.atlassian.fugue.Eithers;
+import io.atlassian.fugue.Pair;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -23,9 +26,12 @@ public class Main81 {
         Path file = factory.getFile("/person.txt")
                 .orElseThrow(() -> new RuntimeException("cannot get file"));
 
+        List<String> errorList = new ArrayList<>();
+
         try (Stream<String> lines = Files.lines(file)) {
             lines.skip(1)
-                    .map(ExFunction.wrap(factory::build))
+                    .map(ExFunction.wrap2(factory::build))
+                    .map(it -> getPerson(errorList, it))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .collect(groupingBy(Person::getName,
@@ -35,6 +41,19 @@ public class Main81 {
                     .forEach(System.out::println);
         } catch (IOException ex) {
             ex.printStackTrace();
+        }
+
+        System.out.println(errorList);
+    }
+
+    public static Optional<Person> getPerson(List<String> errorList,
+                                             Either<Pair<String, Throwable>, Person> it) {
+        if (it.isRight()) {
+            return Optional.of(it.right().get());
+        } else {
+            Pair<String, Throwable> pair = it.left().get();
+            errorList.add(String.format("%s: %s", pair.left(), pair.right().getMessage()));
+            return Optional.empty();
         }
     }
 
@@ -78,6 +97,17 @@ interface ExFunction<E, F> {
             } catch (Throwable throwable) {
                 throwable.printStackTrace();
                 return Optional.empty();
+            }
+        };
+    }
+
+    static <E, F> Function<E, Either<Pair<E, Throwable>, F>> wrap2(ExFunction<E, F> op) {
+        return e -> {
+            try {
+                return Either.right(op.apply(e));
+            } catch (Throwable throwable) {
+                throwable.printStackTrace();
+                return Either.left(new Pair<>(e, throwable));
             }
         };
     }
