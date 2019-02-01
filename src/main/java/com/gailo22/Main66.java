@@ -10,7 +10,6 @@ import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
@@ -22,6 +21,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;
 
@@ -144,35 +144,36 @@ public class Main66 {
         private static List<BaseSubmissionPlugin> softStops;
 
         private static Map<String, Set<String>> parentMap;
+        private static Map<String, List<BaseSubmissionPlugin>> childrenMap;
 
         private static String[] pluginList;
 
         private static List<BaseSubmissionPlugin> plugins = new ArrayList<>();
         static {
             plugins.add(new CreateUpdateCustomer());
-//            plugins.add(new PaymentOrders());
+            plugins.add(new PaymentOrders());
             plugins.add(new CustomerAddress());
-//            plugins.add(new ContactChannel());
-//            plugins.add(new MarketingInfo());
-//            plugins.add(new GenerateDocForSecurities());
-//            plugins.add(new OpenAccount());
-//            plugins.add(new CustRelationship());
-//            plugins.add(new CustomerRemark());
-//            plugins.add(new JakJai());
-//            plugins.add(new DebitCard());
+            plugins.add(new ContactChannel());
+            plugins.add(new MarketingInfo());
+            plugins.add(new GenerateDocForSecurities());
+            plugins.add(new OpenAccount());
+            plugins.add(new CustRelationship());
+            plugins.add(new CustomerRemark());
+            plugins.add(new JakJai());
+            plugins.add(new DebitCard());
             plugins.add(new AppForm());
-//            plugins.add(new EZApp());
-//            plugins.add(new NssEmail());
-//            plugins.add(new NssSms());
-//            plugins.add(new Fatca());
-//            plugins.add(new CustImages());
-//            plugins.add(new MutualFund());
-//            plugins.add(new Consent());
-//            plugins.add(new RiskAssessment());
-//            plugins.add(new PromptPay());
-//            plugins.add(new SubmitDocumentToNas());
-//            plugins.add(new NDID());
-//            plugins.add(new SecuritiesAccount());
+            plugins.add(new EZApp());
+            plugins.add(new NssEmail());
+            plugins.add(new NssSms());
+            plugins.add(new Fatca());
+            plugins.add(new CustImages());
+            plugins.add(new MutualFund());
+            plugins.add(new Consent());
+            plugins.add(new RiskAssessment());
+            plugins.add(new PromptPay());
+            plugins.add(new SubmitDocumentToNas());
+            plugins.add(new NDID());
+            plugins.add(new SecuritiesAccount());
             plugins.add(new NotifyCustomer());
             plugins.add(new ChangeAccountLongNamePlugin());
 
@@ -187,10 +188,44 @@ public class Main66 {
             initParentMap();
             hardStops = plugins.stream().filter(BaseSubmissionPlugin::isHardStop).collect(Collectors.toList());
             softStops = plugins.stream().filter(it -> !it.isHardStop()).collect(Collectors.toList());
+            initChildrenMap();
 
-            log.info("hardStops: {}", hardStops);
-            log.info("softStops: {}", softStops);
             log.info("parentMap: {}", parentMap);
+            printHardStops();
+            printSoftStops(softStops);
+        }
+
+        private static void printHardStops() {
+            log.info("hardStops: >> ");
+            printHardStops(null, "", true);
+        }
+
+        private static void printHardStops(BaseSubmissionPlugin pl, String prefix, boolean isTail) {
+            log.info(prefix + (isTail ? "└── " : "├── ") + (pl == null ? "start" : pl.getName()));
+            List<BaseSubmissionPlugin> children = getChildren(pl);
+            for (int i = 0; i < children.size() - 1; i++) {
+                printHardStops(children.get(i), prefix + (isTail ? "    " : "│   "), false);
+            }
+            if (children.size() > 0) {
+                printHardStops(children.get(children.size() - 1), prefix + (isTail ?"    " : "│   "), true);
+            }
+        }
+
+        private static List<BaseSubmissionPlugin> getChildren(BaseSubmissionPlugin pl) {
+            if (pl == null) {
+                return hardStops.stream().filter(it -> hasNoParent1(it)).collect(Collectors.toList());
+            }
+            List<BaseSubmissionPlugin> plugins = childrenMap.get(pl.getName());
+            return plugins == null? Collections.emptyList() : plugins;
+        }
+
+        private static boolean hasNoParent1(BaseSubmissionPlugin it) {
+            Set<String> parentSet = parentMap.get(it.getName());
+            return parentSet == null || parentSet.isEmpty();
+        }
+
+        private static void printSoftStops(List<BaseSubmissionPlugin> softStops) {
+            log.info("softStops: {}", softStops.stream().map(BaseSubmissionPlugin::getName).collect(toList()));
         }
 
         private static void initParentMap() {
@@ -201,6 +236,34 @@ public class Main66 {
                     continue;
                 }
                 parentMap.put(split[1], parentSet(split[0]));
+            }
+        }
+
+        private static void initChildrenMap() {
+            childrenMap = new HashMap<>();
+            for (String it : pluginList) {
+                String[] split = it.split("->");
+                if (split.length < 2) {
+                    continue;
+                }
+                String parent = split[0].split(";")[0];
+                String child = split[1];
+                hardStops.stream().filter(it2 -> it2.getName().equalsIgnoreCase(child))
+                        .findFirst()
+                        .ifPresent(plugin -> {
+//                    if (childrenMap.containsKey(split[0])) {
+//                        childrenMap.get(split[0]).add(plugin);
+//                    } else {
+//                        List<BaseSubmissionPlugin> list = new ArrayList<>();
+//                        list.add(plugin);
+//                        childrenMap.put(split[0], list);
+//                    }
+                            childrenMap.merge(parent, Arrays.asList(plugin), (l1, l2) ->
+                                    Stream.of(l1, l2)
+                                            .flatMap(Collection::stream)
+                                            .collect(Collectors.toList())
+                            );
+                        });
             }
         }
 
@@ -1497,9 +1560,9 @@ public class Main66 {
 //        accounts.add(new Account("acc4"));
 
         cse.setAccounts(accounts);
-        time("startSubmission: ", () -> {
-            submissionService.start(cse);
-        });
+//        time("startSubmission: ", () -> {
+//            submissionService.start(cse);
+//        });
 
         pool.shutdown();
 
