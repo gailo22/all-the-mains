@@ -13,6 +13,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -21,7 +23,9 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
 public class Main93 {
-	
+
+    private static ExecutorService executor = Executors.newFixedThreadPool(2);
+
 	public static void main(String[] args) {
 
         List<FileItem> files = FileService.files();
@@ -42,11 +46,12 @@ public class Main93 {
         Duration timeElapsed = Duration.between(start, end);
         System.out.println("Total time: " + timeElapsed + " ms");
 
+        executor.shutdown();
     }
 
     private static List<CompletableFuture<Either<Pair<Throwable, FileItem>, FileItem>>> submit(List<FileItem> files) {
         List<CompletableFuture<Either<Pair<Throwable, FileItem>, FileItem>>> result = files.stream()
-                .map(it -> CompletableFuture.supplyAsync(() -> downloadAndGet(it)))
+                .map(it -> CompletableFuture.supplyAsync(() -> downloadAndGet(it), executor))
                 .collect(Collectors.toList());
         return result;
     }
@@ -54,6 +59,7 @@ public class Main93 {
     private static Either<Pair<Throwable, FileItem>, FileItem> downloadAndGet(FileItem item) {
 	    try {
             Instant start = Instant.now();
+            System.out.println("Thread: " + Thread.currentThread().getName());
             TimeUnit.SECONDS.sleep(new Random().nextInt(5));
             Instant end = Instant.now();
             item.setTime(Duration.between(start, end).toMillis());
