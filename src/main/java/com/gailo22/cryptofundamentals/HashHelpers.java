@@ -13,8 +13,10 @@ public class HashHelpers {
         UseBouncyCastle.please();
     }
 
+    private static final String BC = "BC";
+
     public static byte[] computeHash(String message) throws Exception {
-        var sha512 = MessageDigest.getInstance("SHA-512", "BC");
+        var sha512 = MessageDigest.getInstance("SHA-512", BC);
         sha512.update(message.getBytes());
         return sha512.digest();
     }
@@ -29,7 +31,7 @@ public class HashHelpers {
 	public static byte[] deriveKey(String passphrase, byte[] salt) throws Exception {
         int iterationCount = 10000;
         int keyLength = 256;
-        var pbkdf = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256", "BC");
+        var pbkdf = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256", BC);
         var keySpec = new PBEKeySpec(passphrase.toCharArray(), salt, iterationCount, keyLength);
         var secretKey = pbkdf.generateSecret(keySpec);
         
