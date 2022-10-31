@@ -15,6 +15,8 @@ public class AsymmetricHelpers {
         UseBouncyCastle.please();
     }
 
+    private static final String RSA = "RSA";
+
     public static KeyPair generateRsaKey() throws Exception {
         var generator = KeyPairGenerator.getInstance("RSA", "BC");
         generator.initialize(2048);
@@ -59,7 +61,7 @@ public class AsymmetricHelpers {
     {
         SecureRandom secureRandom = new SecureRandom();
 
-        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(RSA);
 
         keyPairGenerator.initialize(2048, secureRandom);
 
