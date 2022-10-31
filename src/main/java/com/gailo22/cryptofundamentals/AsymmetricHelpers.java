@@ -19,7 +19,7 @@ public class AsymmetricHelpers {
     private static final String BC = "BC";
 
     public static KeyPair generateRsaKey() throws Exception {
-        var generator = KeyPairGenerator.getInstance("RSA", BC);
+        var generator = KeyPairGenerator.getInstance(RSA, BC);
         generator.initialize(2048);
         return generator.generateKeyPair();
     }
