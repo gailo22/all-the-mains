@@ -10,6 +10,8 @@ import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 
 public class AsymmetricHelpers {
+    private AsymmetricHelpers() {
+    }
 
     static {
         UseBouncyCastle.please();
