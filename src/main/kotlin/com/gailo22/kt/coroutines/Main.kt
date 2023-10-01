@@ -15,7 +15,7 @@ object Main {
 
         runBlocking { job.join() }
 
-        val aa = a("X") { "A " + it }
+        val aa = a("X") { "A $it" }
 
         println(aa)
 
