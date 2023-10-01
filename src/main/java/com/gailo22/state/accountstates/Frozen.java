@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.util.function.Consumer;
 
 public class Frozen implements AccountState {
-    private AccountUnfrozen onUnfrozen;
+    private final AccountUnfrozen onUnfrozen;
 
     public Frozen(AccountUnfrozen onUnfrozen) {
         this.onUnfrozen = onUnfrozen;
