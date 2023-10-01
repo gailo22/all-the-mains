@@ -21,6 +21,7 @@ public class SymmetricHelpers {
     }
 
     private static final String BC = "BC";
+    private static final String AES_CBC_PKCS_5_PADDING = "AES/CBC/PKCS5Padding";
 
     public static SecretKey generateAesKey() throws Exception {
         var keyGenerator = KeyGenerator.getInstance("AES", BC);
@@ -37,7 +38,7 @@ public class SymmetricHelpers {
 
     public static byte[] encryptWithAes(String message, SecretKey key, IvParameterSpec iv) throws Exception {
         var out = new ByteArrayOutputStream();
-        var aes = Cipher.getInstance("AES/CBC/PKCS5Padding", BC);
+        var aes = Cipher.getInstance(AES_CBC_PKCS_5_PADDING, BC);
         aes.init(Cipher.ENCRYPT_MODE, key, iv);
         var cipherOut = new CipherOutputStream(out, aes);
 
@@ -50,7 +51,7 @@ public class SymmetricHelpers {
 
     public static String decryptWithAes(byte[] cipertext, SecretKey key, IvParameterSpec iv) throws Exception {
         var in = new ByteArrayInputStream(cipertext);
-        var aes = Cipher.getInstance("AES/CBC/PKCS5Padding", BC);
+        var aes = Cipher.getInstance(AES_CBC_PKCS_5_PADDING, BC);
         aes.init(Cipher.DECRYPT_MODE, key, iv);
         var cipherIn = new CipherInputStream(in, aes);
         var reader = new InputStreamReader(cipherIn);
