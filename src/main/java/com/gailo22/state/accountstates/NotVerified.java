@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.util.function.Consumer;
 
 public class NotVerified implements AccountState {
-    private AccountUnfrozen onUnfrozen;
+    private final AccountUnfrozen onUnfrozen;
 
     public NotVerified(AccountUnfrozen onUnfrozen) {
         this.onUnfrozen = onUnfrozen;
