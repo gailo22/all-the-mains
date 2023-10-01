@@ -40,13 +40,9 @@ public class SymmetricHelpers {
         var aes = Cipher.getInstance("AES/CBC/PKCS5Padding", BC);
         aes.init(Cipher.ENCRYPT_MODE, key, iv);
         var cipherOut = new CipherOutputStream(out, aes);
-        var writer = new OutputStreamWriter(cipherOut);
 
-        try {
+        try (var writer = new OutputStreamWriter(cipherOut)) {
             writer.write(message);
-        }
-        finally {
-            writer.close();
         }
 
         return out.toByteArray();
@@ -58,13 +54,9 @@ public class SymmetricHelpers {
         aes.init(Cipher.DECRYPT_MODE, key, iv);
         var cipherIn = new CipherInputStream(in, aes);
         var reader = new InputStreamReader(cipherIn);
-        var bufferedReader = new BufferedReader(reader);
 
-        try {
+        try (var bufferedReader = new BufferedReader(reader)) {
             return bufferedReader.readLine();
-        }
-        finally {
-            bufferedReader.close();
         }
     }
 }
